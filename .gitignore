@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+logs/
+plugins/
+config/
+working_data/
+dags/model/
+.env
+.pytest_cache/
