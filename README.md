@@ -49,7 +49,14 @@ docker compose up -d
 
 Open <http://localhost:8080> and log in as **airflow2 / airflow2**. Both DAGs start paused: unpause one, then trigger it.
 
-To trigger my DAG with custom parameters, use **Trigger → Advanced options** in the UI, or the CLI:
+![Both DAGs in the Airflow 3.4 UI](docs/screenshots/dags_list.png)
+
+To trigger my DAG with custom parameters, click **Trigger** and edit the **Run Parameters**
+(generated from the DAG's `Params`, with types, defaults and descriptions):
+
+<img src="docs/screenshots/trigger_params.png" alt="Trigger form showing the DAG's run parameters" width="560">
+
+Or use the CLI:
 
 ```bash
 docker compose exec airflow-scheduler airflow dags trigger Customer_Segmentation_Pipeline --conf '{"min_silhouette": 0.5}'
@@ -77,7 +84,11 @@ load_data_task → data_preprocessing_task → build_save_model_task → load_mo
 The only changes are renaming `airflow.py` to `airflow_lab1.py` (a file named `airflow.py` shadows the
 `airflow` package when you run it directly) and setting the DAG owner.
 
+![Baseline DAG graph](docs/screenshots/baseline_graph.png)
+
 **Result:** the log prints `Optimal no. of clusters: 8`, and the task returns cluster `5`.
+
+![Baseline load_model_task log](docs/screenshots/baseline_log.png)
 
 While redoing it I noticed two problems in the original:
 1. It saves the **k=49** model from the last loop iteration, not the model at the elbow k.
@@ -95,6 +106,10 @@ make_run_dir → validate_data → preprocess → choose_k → train_model ─�
                                                                     │                           └→ flag_for_review ┤
                                                                     └→ profile_segments → score_new_customers ─────┴→ write_report → list_artifacts
 ```
+
+The same DAG in Airflow's Graph view (default run: the gate promoted the model, so `flag_for_review` is skipped):
+
+![Customer_Segmentation_Pipeline graph, promote branch](docs/screenshots/graph_promoted.png)
 
 ### What changed vs. the baseline
 
@@ -146,6 +161,18 @@ name uses the two features that stand out most (|z| ≥ 0.5).
 Trigger with `{"min_silhouette": 0.5}`: `promote_model` is **skipped**, `flag_for_review` runs, and
 the production model stays as it was. With the default 0.20, the opposite happens. `write_report` uses
 the `none_failed_min_one_success` trigger rule, so it runs after either branch.
+
+![Customer_Segmentation_Pipeline graph, flag branch](docs/screenshots/graph_flagged.png)
+
+The `quality_gate` log for a default run shows the decision, and the Grid view on the left shows that
+across runs, exactly one of `promote_model` / `flag_for_review` is skipped (pink) each time:
+
+![quality_gate task log and grid of runs](docs/screenshots/quality_gate_log.png)
+
+The DAG overview, with run durations and the slowest tasks (`choose_k` dominates because it fits KMeans
+once per candidate k):
+
+![Customer_Segmentation_Pipeline overview](docs/screenshots/segmentation_grid.png)
 
 ### Artifacts per run
 
